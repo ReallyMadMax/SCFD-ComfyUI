@@ -1,6 +1,5 @@
 "use client"
-// app/page.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import CheckpointSelector from './components/CheckpointSelector';
 
 export default function Home() {
@@ -10,43 +9,99 @@ export default function Home() {
     const [error, setError] = useState(null);
     const [checkpoints, setCheckpoints] = useState([]);
     const [selectedCheckpoint, setSelectedCheckpoint] = useState('prefectPonyXL_v3.safetensors');
-    const [dimensions, setDimensions] = useState({
+    const [imageDimensions, setImageDimensions] = useState({
         width: 768,
         height: 768
     });
+    const [containerDimensions, setContainerDimensions] = useState({
+        width: 0,
+        height: 0
+    });
+    const [serverAddress, setServerAddress] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
+    const [connectionLoading, setConnectionLoading] = useState(false);
+
+    const containerRef = React.useRef(null);
 
     useEffect(() => {
-        async function fetchCheckpoints() {
-            try {
-                const response = await fetch('/api/checkpoints');
-                const data = await response.json();
-                
-                if (data.success && data.checkpoints) {
-                    console.log('Available checkpoints:', data.checkpoints);
-                    setCheckpoints(data.checkpoints);
-                    
-                    // If current selection isn't in the list, select the first available
-                    if (data.checkpoints.length > 0 && !data.checkpoints.includes(selectedCheckpoint)) {
-                        setSelectedCheckpoint(data.checkpoints[0]);
-                    }
-                } else {
-                    throw new Error(data.error || 'No checkpoints found');
-                }
-            } catch (err) {
-                console.error('Failed to fetch checkpoints:', err);
-                setError('Failed to load checkpoints');
+        const handleResize = () => {
+            if (containerRef.current) {
+                const { width, height } = containerRef.current.getBoundingClientRect();
+                setContainerDimensions({ width, height });
             }
-        }
+        };
 
-        fetchCheckpoints();
-    }, [selectedCheckpoint]);
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial calculation
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
+
+    const handleConnect = async () => {
+        setConnectionLoading(true);
+        setError(null);
+        
+        try {
+            const response = await fetch('/api/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ serverAddress }),
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to connect to server');
+            }
+
+            setIsConnected(true);
+            fetchCheckpoints();
+        } catch (err) {
+            setError('Connection failed: ' + err.message);
+            setIsConnected(false);
+        } finally {
+            setConnectionLoading(false);
+        }
+    };
+
+    const fetchCheckpoints = async () => {
+        try {
+            const response = await fetch('/api/checkpoints', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ serverAddress }),
+            });
+            const data = await response.json();
+            
+            if (data.success && data.checkpoints) {
+                setCheckpoints(data.checkpoints);
+                if (data.checkpoints.length > 0 && !data.checkpoints.includes(selectedCheckpoint)) {
+                    setSelectedCheckpoint(data.checkpoints[0]);
+                }
+            } else {
+                throw new Error(data.error || 'No checkpoints found');
+            }
+        } catch (err) {
+            setError('Failed to fetch checkpoints: ' + err.message);
+        }
+    };
 
     const handleCheckpointChange = (checkpoint) => {
-        console.log('Changing checkpoint to:', checkpoint);
         setSelectedCheckpoint(checkpoint);
     };
 
     const handleGenerate = async () => {
+        if (!isConnected) {
+            setError('Please connect to a server first');
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -58,9 +113,10 @@ export default function Home() {
                 },
                 body: JSON.stringify({ 
                     prompt,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                    checkpoint: selectedCheckpoint
+                    width: imageDimensions.width,
+                    height: imageDimensions.height,
+                    checkpoint: selectedCheckpoint,
+                    serverAddress
                 }),
             });
 
@@ -73,65 +129,107 @@ export default function Home() {
             setImageData(data.imageData);
         } catch (err) {
             setError('Failed to generate image: ' + err.message);
-            console.error(err);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleImageDimensionChange = (dimension, value) => {
+        // Maintain the aspect ratio
+        if (dimension === 'width') {
+            setImageDimensions(prev => ({
+                width: value,
+                height: Math.round(value * (prev.height / prev.width))
+            }));
+        } else {
+            setImageDimensions(prev => ({
+                width: Math.round(value * (prev.width / prev.height)),
+                height: value
+            }));
+        }
+    };
+
     return (
         <main className="min-h-screen bg-gray-900 text-gray-100">
-            <div className="container mx-auto px-4 py-8 flex flex-col min-h-screen">
-                <h1 className="text-3xl font-bold text-center mb-8 text-blue-400">
-                    Image Generator
-                </h1>
+            <div className="container mx-auto px-4 py-8 flex flex-col min-h-screen" ref={containerRef}>
+                {/* Header with title and connection controls */}
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold text-blue-400">
+                        Image Generator
+                    </h1>
+                    <div className="flex gap-4">
+                        <input
+                            type="text"
+                            value={serverAddress}
+                            onChange={(e) => setServerAddress(e.target.value)}
+                            placeholder="Server address (e.g., 10.0.0.60:8188)"
+                            className="w-64 p-2 rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                            disabled={isConnected}
+                        />
+                        <button
+                            onClick={handleConnect}
+                            disabled={connectionLoading || !serverAddress || isConnected}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors min-w-[100px]"
+                        >
+                            {connectionLoading ? (
+                                <span className="flex items-center justify-center">
+                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                </span>
+                            ) : isConnected ? (
+                                'Connected'
+                            ) : (
+                                'Connect'
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="text-red-400 bg-red-900/50 px-4 py-2 rounded-lg mb-4">
+                        {error}
+                    </div>
+                )}
 
                 <div className="flex-grow flex gap-8">
                     {/* Controls Panel */}
                     <div className="w-64 bg-gray-800 p-4 rounded-lg h-fit space-y-6">
                         <h2 className="text-lg font-semibold mb-4">Image Settings</h2>
                         
-                        {/* Checkpoint Selector */}
                         <CheckpointSelector
                             checkpoints={checkpoints}
                             selectedCheckpoint={selectedCheckpoint}
                             onCheckpointChange={handleCheckpointChange}
                         />
 
-                        {/* Width Slider */}
                         <div className="space-y-2">
                             <label className="block text-sm font-medium">
-                                Width: {dimensions.width}px
+                                Width: {imageDimensions.width}px
                             </label>
                             <input
                                 type="range"
                                 min="512"
                                 max="1024"
                                 step="64"
-                                value={dimensions.width}
-                                onChange={(e) => setDimensions(prev => ({
-                                    ...prev,
-                                    width: parseInt(e.target.value)
-                                }))}
+                                value={imageDimensions.width}
+                                onChange={(e) => handleImageDimensionChange('width', parseInt(e.target.value))}
                                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
 
-                        {/* Height Slider */}
                         <div className="space-y-2">
                             <label className="block text-sm font-medium">
-                                Height: {dimensions.height}px
+                                Height: {imageDimensions.height}px
                             </label>
                             <input
                                 type="range"
                                 min="512"
                                 max="1024"
                                 step="64"
-                                value={dimensions.height}
-                                onChange={(e) => setDimensions(prev => ({
-                                    ...prev,
-                                    height: parseInt(e.target.value)
-                                }))}
+                                value={imageDimensions.height}
+                                onChange={(e) => handleImageDimensionChange('height', parseInt(e.target.value))}
                                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
@@ -139,25 +237,23 @@ export default function Home() {
 
                     {/* Main Content */}
                     <div className="flex-grow flex flex-col">
-                        {error && (
-                            <div className="text-red-400 bg-red-900/50 px-4 py-2 rounded-lg mb-4">
-                                {error}
-                            </div>
-                        )}
-                        
-                        {imageData ? (
-                            <div className="bg-gray-800 rounded-lg p-4 shadow-lg w-full">
+                        <div className="bg-gray-800 rounded-lg p-4 shadow-lg w-full h-full">
+                            {imageData ? (
                                 <img 
                                     src={imageData} 
                                     alt="Generated" 
-                                    className="max-w-full h-auto rounded-lg mx-auto"
+                                    className="max-w-full max-h-full rounded-lg mx-auto"
+                                    style={{
+                                        width: `${Math.min((containerDimensions.width * 0.8), imageDimensions.width)}px`,
+                                        height: `${Math.min((containerDimensions.height * 0.8), imageDimensions.height)}px`
+                                    }}
                                 />
-                            </div>
-                        ) : (
-                            <div className="bg-gray-800/50 rounded-lg p-8 text-gray-400 border-2 border-dashed border-gray-700 flex items-center justify-center h-96">
-                                Generated image will appear here
-                            </div>
-                        )}
+                            ) : (
+                                <div className="flex items-center justify-center h-full">
+                                    <span className="text-gray-400">Generated image will appear here</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -173,7 +269,7 @@ export default function Home() {
                         />
                         <button
                             onClick={handleGenerate}
-                            disabled={loading || !prompt}
+                            disabled={loading || !prompt || !isConnected}
                             className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                         >
                             {loading ? (
