@@ -1,14 +1,44 @@
 // app/utils/comfyClient.js
 import { ComfyUIClient } from 'comfy-ui-client';
 
-export async function generateImage(userPrompt, width = 768, height = 768, checkpoint = 'prefectPonyXL_v3.safetensors') {
+export async function generateImage(userPrompt, serverAddress, width = 768, height = 768, checkpoint = 'prefectPonyXL_v3.safetensors') {
     const randomSeed = Math.floor(Math.random() * 100000) + 1;
+    
+    if (!serverAddress) {
+        throw new Error('Server address is required');
+    }
+
+    // Validate server address format
+    if (!serverAddress.includes(':')) {
+        throw new Error('Server address must include port number (e.g., domain:8188)');
+    }
+
+    // Test the server connectivity
+    try {
+        const [host, port] = serverAddress.split(':');
+        const testResponse = await fetch(`http://${host}:${port}/history`);
+        
+        if (!testResponse.ok) {
+            throw new Error(`Server returned status ${testResponse.status}`);
+        }
+
+        const contentType = testResponse.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+            throw new Error('Server is not responding with JSON. Received content-type: ' + contentType);
+        }
+
+        await testResponse.json(); // Verify we can parse the JSON
+    } catch (error) {
+        console.error('Server connectivity test failed:', error);
+        throw new Error(`ComfyUI server connectivity test failed: ${error.message}`);
+    }
 
     console.log('Generation Parameters:', {
         seed: randomSeed,
         checkpoint: checkpoint,
         width: width,
-        height: height
+        height: height,
+        serverAddress: serverAddress
     });
 
     const prompt = {
@@ -71,13 +101,30 @@ export async function generateImage(userPrompt, width = 768, height = 768, check
         },
     };
 
-    const serverAddress = '10.0.0.60:8188';
-    const clientId = 'baadbabe-b00b-4206-9420-deadd00d1337';
+    const clientId = `vercel-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const client = new ComfyUIClient(serverAddress, clientId);
 
     try {
-        await client.connect();
-        const outputImages = await client.getImages(prompt);
+        // Connect with timeout
+        const connectPromise = client.connect();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000);
+        });
+
+        await Promise.race([connectPromise, timeoutPromise]);
+
+        // Generate image with timeout
+        const generatePromise = client.getImages(prompt);
+        const generateTimeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Generation timeout after 30s')), 30000);
+        });
+
+        const outputImages = await Promise.race([generatePromise, generateTimeoutPromise]);
+        
+        if (!outputImages || typeof outputImages !== 'object') {
+            throw new Error('Invalid response format from server');
+        }
+
         const imageNodeId = Object.keys(outputImages).find(nodeId =>
             outputImages[nodeId] && outputImages[nodeId].length > 0
         );
@@ -92,8 +139,16 @@ export async function generateImage(userPrompt, width = 768, height = 768, check
 
         return [buffer];
     } catch (error) {
-        throw error;
+        let errorMessage = error.message;
+        if (error.message.includes('JSON.parse') || error.message.includes('Unexpected token')) {
+            errorMessage = 'Server returned invalid response format. Please check if the ComfyUI server is properly configured and accessible.';
+        }
+        throw new Error(`Image generation failed: ${errorMessage}`);
     } finally {
-        await client.disconnect();
+        try {
+            await client.disconnect();
+        } catch (error) {
+            console.error('Error during disconnect:', error);
+        }
     }
 }

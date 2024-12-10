@@ -9,35 +9,16 @@ export default function Home() {
     const [error, setError] = useState(null);
     const [checkpoints, setCheckpoints] = useState([]);
     const [selectedCheckpoint, setSelectedCheckpoint] = useState('prefectPonyXL_v3.safetensors');
-    const [imageDimensions, setImageDimensions] = useState({
-        width: 768,
-        height: 768
-    });
-    const [containerDimensions, setContainerDimensions] = useState({
-        width: 0,
-        height: 0
-    });
+    
+    // Generation dimensions (controlled by sliders)
+    const [genWidth, setGenWidth] = useState(768);
+    const [genHeight, setGenHeight] = useState(768);
+    
     const [serverAddress, setServerAddress] = useState('');
     const [isConnected, setIsConnected] = useState(false);
     const [connectionLoading, setConnectionLoading] = useState(false);
 
     const containerRef = React.useRef(null);
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (containerRef.current) {
-                const { width, height } = containerRef.current.getBoundingClientRect();
-                setContainerDimensions({ width, height });
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Initial calculation
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
 
     const handleConnect = async () => {
         setConnectionLoading(true);
@@ -113,8 +94,8 @@ export default function Home() {
                 },
                 body: JSON.stringify({ 
                     prompt,
-                    width: imageDimensions.width,
-                    height: imageDimensions.height,
+                    width: genWidth,
+                    height: genHeight,
                     checkpoint: selectedCheckpoint,
                     serverAddress
                 }),
@@ -134,26 +115,10 @@ export default function Home() {
         }
     };
 
-    const handleImageDimensionChange = (dimension, value) => {
-        // Maintain the aspect ratio
-        if (dimension === 'width') {
-            setImageDimensions(prev => ({
-                width: value,
-                height: Math.round(value * (prev.height / prev.width))
-            }));
-        } else {
-            setImageDimensions(prev => ({
-                width: Math.round(value * (prev.width / prev.height)),
-                height: value
-            }));
-        }
-    };
-
     return (
         <main className="min-h-screen bg-gray-900 text-gray-100">
-            <div className="container mx-auto px-4 py-8 flex flex-col min-h-screen" ref={containerRef}>
-                {/* Header with title and connection controls */}
-                <div className="flex justify-between items-center mb-8">
+            <div className="container mx-auto px-4 py-8 flex flex-col h-screen" ref={containerRef}>
+                <div className="flex justify-between items-center mb-8 flex-none">
                     <h1 className="text-3xl font-bold text-blue-400">
                         Image Generator
                     </h1>
@@ -186,67 +151,61 @@ export default function Home() {
                         </button>
                     </div>
                 </div>
-
+    
                 {error && (
-                    <div className="text-red-400 bg-red-900/50 px-4 py-2 rounded-lg mb-4">
+                    <div className="text-red-400 bg-red-900/50 px-4 py-2 rounded-lg mb-4 flex-none">
                         {error}
                     </div>
                 )}
-
-                <div className="flex-grow flex gap-8">
-                    {/* Controls Panel */}
-                    <div className="w-64 bg-gray-800 p-4 rounded-lg h-fit space-y-6">
-                        <h2 className="text-lg font-semibold mb-4">Image Settings</h2>
+    
+                <div className="flex gap-8 min-h-0 flex-grow overflow-auto">
+                    <div className="w-64 bg-gray-800 p-4 rounded-lg h-fit space-y-6 flex-none">
+                        <h2 className="text-lg font-semibold mb-4">Generation Settings</h2>
                         
                         <CheckpointSelector
                             checkpoints={checkpoints}
                             selectedCheckpoint={selectedCheckpoint}
                             onCheckpointChange={handleCheckpointChange}
                         />
-
+    
                         <div className="space-y-2">
                             <label className="block text-sm font-medium">
-                                Width: {imageDimensions.width}px
+                                Width: {genWidth}px
                             </label>
                             <input
                                 type="range"
                                 min="512"
                                 max="1024"
                                 step="64"
-                                value={imageDimensions.width}
-                                onChange={(e) => handleImageDimensionChange('width', parseInt(e.target.value))}
+                                value={genWidth}
+                                onChange={(e) => setGenWidth(parseInt(e.target.value))}
                                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
-
+    
                         <div className="space-y-2">
                             <label className="block text-sm font-medium">
-                                Height: {imageDimensions.height}px
+                                Height: {genHeight}px
                             </label>
                             <input
                                 type="range"
                                 min="512"
                                 max="1024"
                                 step="64"
-                                value={imageDimensions.height}
-                                onChange={(e) => handleImageDimensionChange('height', parseInt(e.target.value))}
+                                value={genHeight}
+                                onChange={(e) => setGenHeight(parseInt(e.target.value))}
                                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
                     </div>
-
-                    {/* Main Content */}
-                    <div className="flex-grow flex flex-col">
-                        <div className="bg-gray-800 rounded-lg p-4 shadow-lg w-full h-full">
+    
+                    <div className="flex-grow flex flex-col min-h-0">
+                        <div className="bg-gray-800 rounded-lg p-4 shadow-lg w-full h-full flex items-center justify-center overflow-auto">
                             {imageData ? (
-                                <img 
-                                    src={imageData} 
-                                    alt="Generated" 
-                                    className="max-w-full max-h-full rounded-lg mx-auto"
-                                    style={{
-                                        width: `${Math.min((containerDimensions.width * 0.8), imageDimensions.width)}px`,
-                                        height: `${Math.min((containerDimensions.height * 0.8), imageDimensions.height)}px`
-                                    }}
+                                <img
+                                    src={imageData}
+                                    alt="Generated"
+                                    className="rounded-lg w-auto h-auto object-contain max-w-full max-h-full"
                                 />
                             ) : (
                                 <div className="flex items-center justify-center h-full">
@@ -256,9 +215,8 @@ export default function Home() {
                         </div>
                     </div>
                 </div>
-
-                {/* Bottom Controls */}
-                <div className="w-full max-w-2xl mx-auto bg-gray-800 p-4 rounded-lg shadow-lg mt-8">
+    
+                <div className="w-full max-w-2xl mx-auto bg-gray-800 p-4 rounded-lg shadow-lg mt-8 flex-none">
                     <div className="flex gap-4">
                         <input
                             type="text"

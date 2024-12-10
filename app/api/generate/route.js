@@ -1,17 +1,26 @@
+// app/api/generate/route.js
 import { generateImage } from '@/app/utils/comfyClient';
 
 export async function POST(request) {
     try {
-        const { prompt, width, height, checkpoint } = await request.json();
+        const { prompt, width, height, checkpoint, serverAddress } = await request.json();
         
+        if (!serverAddress) {
+            return Response.json(
+                { success: false, error: 'Server address is required' },
+                { status: 400 }
+            );
+        }
+
         console.log('Received generation request:', {
             prompt,
             width,
             height,
-            checkpoint
+            checkpoint,
+            serverAddress
         });
 
-        const images = await generateImage(prompt, width, height, checkpoint);
+        const images = await generateImage(prompt, serverAddress, width, height, checkpoint);
         
         if (!images || images.length === 0) {
             throw new Error('No image generated');
