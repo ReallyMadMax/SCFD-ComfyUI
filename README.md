@@ -1,3 +1,14 @@
+Created by Max Dilger,
+with much help from https://github.com/itsKaynine/comfy-ui-client
+
+You need to change:
+
+const serverAddress = '10.0.0.60:8188';
+
+In utils/comfyClient.js to your own comfy UI ip address for this to work.
+For security reasons will not be using my own instance address.
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
