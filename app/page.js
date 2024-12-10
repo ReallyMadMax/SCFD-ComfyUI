@@ -162,7 +162,7 @@ export default function Home() {
                             type="text"
                             value={serverAddress}
                             onChange={(e) => setServerAddress(e.target.value)}
-                            placeholder="Server address (e.g., 10.0.0.60:8188)"
+                            placeholder="ComfyUI address EX: 10.0.0.60:8188"
                             className="w-64 p-2 rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
                             disabled={isConnected}
                         />
