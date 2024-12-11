@@ -82,7 +82,7 @@ export async function generateImage(userPrompt, serverAddress, width = 768, heig
             class_type: 'CLIPTextEncode',
             inputs: {
                 clip: ['4', 1],
-                text: 'bad hands, ugly, gross, disfigured, lewd, boobs, naked women, cum, sex, innapropriate',
+                text: 'bad hands, ugly, gross, disfigured, lewd, boobs, naked women, sex, innapropriate, penis',
             },
         },
         '8': {
