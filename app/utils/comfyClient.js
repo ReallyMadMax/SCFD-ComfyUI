@@ -1,7 +1,7 @@
 // app/utils/comfyClient.js
 import { ComfyUIClient } from 'comfy-ui-client';
 
-export async function generateImage(userPrompt, serverAddress, width = 768, height = 768, checkpoint = 'prefectPonyXL_v3.safetensors') {
+export async function generateImage(userPrompt,negativePrompt, serverAddress, width = 768, height = 768, checkpoint = 'prefectPonyXL_v3.safetensors') {
     const randomSeed = Math.floor(Math.random() * 100000) + 1;
     
     if (!serverAddress) {
@@ -82,7 +82,7 @@ export async function generateImage(userPrompt, serverAddress, width = 768, heig
             class_type: 'CLIPTextEncode',
             inputs: {
                 clip: ['4', 1],
-                text: 'bad hands, ugly, gross, disfigured, lewd, boobs, naked women, sex, innapropriate, penis',
+                text: negativePrompt,
             },
         },
         '8': {

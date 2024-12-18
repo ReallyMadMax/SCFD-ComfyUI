@@ -4,6 +4,7 @@ import CheckpointSelector from './components/CheckpointSelector';
 
 export default function Home() {
     const [prompt, setPrompt] = useState('');
+    const [negativePrompt, setNegativePrompt] = useState('');
     const [imageData, setImageData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -94,6 +95,7 @@ export default function Home() {
                 },
                 body: JSON.stringify({ 
                     prompt,
+                    negativePrompt,
                     width: genWidth,
                     height: genHeight,
                     checkpoint: selectedCheckpoint,
@@ -217,31 +219,40 @@ export default function Home() {
                 </div>
     
                 <div className="w-full max-w-2xl mx-auto bg-gray-800 p-4 rounded-lg shadow-lg mt-8 flex-none">
-                    <div className="flex gap-4">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex gap-4">
+                            <input
+                                type="text"
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                placeholder="Enter your prompt..."
+                                className="flex-grow p-3 rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                            />
+                            <button
+                                onClick={handleGenerate}
+                                disabled={loading || !prompt || !isConnected}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Generating...
+                                    </span>
+                                ) : (
+                                    'Generate'
+                                )}
+                            </button>
+                        </div>
                         <input
                             type="text"
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="Enter your prompt..."
-                            className="flex-grow p-3 rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            placeholder="Enter negative prompt..."
+                            className="w-full p-3 rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
                         />
-                        <button
-                            onClick={handleGenerate}
-                            disabled={loading || !prompt || !isConnected}
-                            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {loading ? (
-                                <span className="flex items-center gap-2">
-                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Generating...
-                                </span>
-                            ) : (
-                                'Generate'
-                            )}
-                        </button>
                     </div>
                 </div>
             </div>
