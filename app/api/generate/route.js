@@ -3,7 +3,7 @@ import { generateImage } from '@/app/utils/comfyClient';
 
 export async function POST(request) {
     try {
-        const { prompt, negativePrompt, width, height, checkpoint, serverAddress } = await request.json();
+        const { prompt, negativePrompt, width, height, checkpoint, serverAddress, cfg, steps } = await request.json();
        
         if (!serverAddress) {
             return Response.json(
@@ -25,16 +25,20 @@ export async function POST(request) {
             width,
             height,
             checkpoint,
-            serverAddress
+            serverAddress,
+            cfg,
+            steps
         });
 
         const images = await generateImage(
             prompt,
-            negativePrompt || '', // Pass empty string if no negative prompt
+            negativePrompt || '',
             serverAddress,
             width,
             height,
-            checkpoint
+            checkpoint,
+            cfg,
+            steps
         );
        
         if (!images || images.length === 0) {

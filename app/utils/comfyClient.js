@@ -1,7 +1,16 @@
 // app/utils/comfyClient.js
 import { ComfyUIClient } from 'comfy-ui-client';
 
-export async function generateImage(userPrompt,negativePrompt, serverAddress, width = 768, height = 768, checkpoint = 'prefectPonyXL_v3.safetensors') {
+export async function generateImage(
+    userPrompt,
+    negativePrompt,
+    serverAddress,
+    width = 768,
+    height = 768,
+    checkpoint = 'prefectPonyXL_v3.safetensors',
+    cfg = 8,
+    steps = 20
+) {
     const randomSeed = Math.floor(Math.random() * 100000) + 1;
     
     if (!serverAddress) {
@@ -38,14 +47,16 @@ export async function generateImage(userPrompt,negativePrompt, serverAddress, wi
         checkpoint: checkpoint,
         width: width,
         height: height,
-        serverAddress: serverAddress
+        serverAddress: serverAddress,
+        cfg: cfg,
+        steps: steps
     });
 
     const prompt = {
         '3': {
             class_type: 'KSampler',
             inputs: {
-                cfg: 8,
+                cfg: cfg,
                 denoise: 1,
                 latent_image: ['5', 0],
                 model: ['4', 0],
@@ -54,7 +65,7 @@ export async function generateImage(userPrompt,negativePrompt, serverAddress, wi
                 sampler_name: 'euler',
                 scheduler: 'normal',
                 seed: randomSeed,
-                steps: 20,
+                steps: steps,
             },
         },
         '4': {
