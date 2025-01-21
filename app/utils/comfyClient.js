@@ -7,7 +7,7 @@ export async function generateImage(
     serverAddress,
     width = 768,
     height = 768,
-    checkpoint = 'prefectPonyXL_v3.safetensors',
+    checkpoint = 'envyStarlightXL01Lightning_galaxy.safetensors',
     cfg = 8,
     steps = 20
 ) {
